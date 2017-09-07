@@ -1,6 +1,5 @@
 import sys
 
-
 class packet():
     magicNum = 0x0000
 
@@ -12,17 +11,12 @@ class packet():
     dataLen = 0
     data = ""
 
-    acknowledgementPacket =
-
-    end = False
-    
-    def __init__(self, magicNum, packetType, dataLen, data, seqNo, end=0):
+    def __init__(self, magicNum, packetType, dataLen, data, seqNo):
         self.magicNum = magicNum
         self.packetType = packetType
         self.dataLen = dataLen
         self.data = data
         self.seqNo = seqNo
-        self.end = end
         
     def __str__(self):
         output_sting = []
@@ -31,7 +25,6 @@ class packet():
         output_sting.append(str(self.dataLen))
         output_sting.append(str(self.data))
         output_sting.append(str(self.seqNo))
-        output_sting.append(str(self.end))
         joiner = '","'
         return joiner.join(output_sting)
 
@@ -46,9 +39,9 @@ class packet():
     
 
 def validity_check(magicNum, packetType, dataLen, data):
-    # ####################
-    # #RE-WRITE THIS SAM##
-    # ####################
+    # #####################
+    # # RE-WRITE THIS SAM #
+    # #####################
     
     # typeBinConversion is a vairable that will be converted to 0 or 1
     # for the smallest packet size
@@ -69,12 +62,14 @@ def validity_check(magicNum, packetType, dataLen, data):
     if (dataLen > 512):
         print("incorrect data length")
     elif (sys.getsizeof(data) > dataLen):
+        print sys.getsizeof(data)
+        print dataLen
         print ("incorrect length of data")
         
     return(typeBinConversion)
         
         
-def createPacket(magicNum, packetType, dataLen, data, end=0, seqNo=None):
+def createPacket(magicNum, packetType, dataLen, data, seqNo=None):
     typeBinConversion = validity_check(magicNum, packetType, dataLen, data)
     new_packet = packet(magicNum, typeBinConversion, dataLen, data, seqNo)
     return new_packet
@@ -82,8 +77,8 @@ def createPacket(magicNum, packetType, dataLen, data, end=0, seqNo=None):
 
 def createPacketFromString(stringInput):
     try:
-        magicNum, packetType, dataLen, seqNo, data, end = stringInput.split('","')
-        new_packet = createPacket(magicNum, packetType, dataLen, data, seqNo, end)
+        magicNum, packetType, dataLen, seqNo, data = stringInput.split('","')
+        new_packet = createPacket(magicNum, packetType, dataLen, data, seqNo)
         return new_packet
     except ValueError:
         print("packet is invalid and does not contain the correct amount of fields")
@@ -91,7 +86,7 @@ def createPacketFromString(stringInput):
 
 
 def createPackets(magicNum, queueOfPackets, data, packetDataLength, packetType):
-    """Creates many packets in a queue/ordered list with one peice of data, split up into given packet length"""
+    """Creates many packets in a queue/ordered list with one piece of data, split up into given packet length"""
     startOfPacketData = 0
     dataLen = len(data)
     
