@@ -1,6 +1,10 @@
 import sys
 
-class packet():
+class PacketInputError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+class Packet():
     magicNum = 0x0000
 
     # either 0 for dataPacket or 1 for acknowledgementPacket
@@ -12,11 +16,15 @@ class packet():
     data = ""
 
     def __init__(self, magicNum, packetType, dataLen, data, seqNo):
-        self.magicNum = magicNum
-        self.packetType = packetType
-        self.dataLen = dataLen
-        self.data = data
-        self.seqNo = seqNo
+        check = self.creationChecks(magicNum, packetType, dataLen, data, seqNo)
+        if check == "Incorrect":
+            self.magicNum = magicNum
+            self.packetType = packetType
+            self.dataLen = dataLen
+            self.data = data
+            self.seqNo = seqNo
+        else:
+            raise PacketInputError(check)
         
     def __str__(self):
         output_sting = []
@@ -38,36 +46,24 @@ class packet():
         return self.data
     
 
-def validity_check(magicNum, packetType, dataLen, data):
-    # #####################
-    # # RE-WRITE THIS SAM #
-    # #####################
-    
-    # typeBinConversion is a vairable that will be converted to 0 or 1
-    # for the smallest packet size
-    typeBinConversion = None
-    
-    try:
-        int(magicNum, 16)
-    except ValueError:
-        print("your magic number is not a hexadecimal number")
-    
-    if (packetType != "dataPacket" and packetType != "acknowledgementPacket"): 
-        print("invalid packetType: {0}".format(packetType))
-    elif (packetType == "dataPacket"):
-        typeBinConversion = 0
-    else:
-        typeBinConversion = 1
-
-    if (dataLen > 512):
-        print("incorrect data length")
-    elif (sys.getsizeof(data) > dataLen):
-        print sys.getsizeof(data)
-        print dataLen
-        print ("incorrect length of data")
+    def creationChecks(self, magicNum, packetType, dataLen, data, seqNo):
+        output = "  "
+        try:
+            int(magicNum, 16)
+        except:
+            output += "magicNum, "
+            
+        if (packetType != "dataPacket" and packetType != "acknowledgementPacket"): 
+            output += "packetType, "
+                
+        if ((dataLen > 512) or (dataLen != sys.getsizeof(data))):
+            output += "dataLen, "
         
-    return(typeBinConversion)
+        if ((seqNo != 0b0) and (seqNo != 0b1)):
+            output += "seqNo, "
         
+        output = "Incorrect" + output[1:-2]
+        return output
         
 def createPacket(magicNum, packetType, dataLen, data, seqNo=None):
     typeBinConversion = validity_check(magicNum, packetType, dataLen, data)
