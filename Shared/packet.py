@@ -5,20 +5,24 @@ class PacketInputError(Exception):
         self.message = message
 
 class Packet():
-    magicNum = 0x0000
+    magicN0 = 0x0000
 
     # either 0 for dataPacket or 1 for acknowledgementPacket
-    packetType = 0
+    packetType = 0b0
     
     seqNo = None
     
     dataLen = 0
     data = ""
 
-    def __init__(self, magicNum, packetType, dataLen, data, seqNo):
-        check = self.creationChecks(magicNum, packetType, dataLen, data, seqNo)
-        if check == "Incorrect":
-            self.magicNum = magicNum
+    def __init__(self, magicN0, packetType, dataLen, data, seqNo):
+        check = self.creationCheck(magicNo, packetType, dataLen, data, seqNo)
+        if check == "All Good":
+            self.magicNo = magicNo
+            if (packetType = "dataPacket"):
+                self.packetType = 0b0
+            elif (packetType = "acknowledgementPacket"):
+                self.packetType = 0b1
             self.packetType = packetType
             self.dataLen = dataLen
             self.data = data
@@ -28,7 +32,7 @@ class Packet():
         
     def __str__(self):
         output_sting = []
-        output_sting.append(str(self.magicNum))
+        output_sting.append(str(self.magicNo))
         output_sting.append(str(self.packetType))
         output_sting.append(str(self.dataLen))
         output_sting.append(str(self.data))
@@ -46,12 +50,12 @@ class Packet():
         return self.data
     
 
-    def creationChecks(self, magicNum, packetType, dataLen, data, seqNo):
+    def creationCheck(self, magicNo, packetType, dataLen, data, seqNo):
         output = "  "
         try:
-            int(magicNum, 16)
+            int(magicNo, 16)
         except:
-            output += "magicNum, "
+            output += "magicNo, "
             
         if (packetType != "dataPacket" and packetType != "acknowledgementPacket"): 
             output += "packetType, "
@@ -62,26 +66,40 @@ class Packet():
         if ((seqNo != 0b0) and (seqNo != 0b1)):
             output += "seqNo, "
         
-        output = "Incorrect" + output[1:-2]
+        if output == "  ":
+            output = "All Good"
+        else:
+            output = "Incorrect" + output[1:-2]
         return output
+    
+    def validityCheck(self, magicNo, seqNo):
+        result = False
+        magicNoCheck = (self.magicNo == magicNo)
+        seqNoCheck = (self.seqNo == seqNo)
+        dataLenCheck = (sys.getsizeof(self.data) == self.dataLen)
+        if (magicNoCheck && seqNoCheck && dataLenCheck):
+            result = True
+        return result
+            
         
-def createPacket(magicNum, packetType, dataLen, data, seqNo=None):
-    typeBinConversion = validity_check(magicNum, packetType, dataLen, data)
-    new_packet = packet(magicNum, typeBinConversion, dataLen, data, seqNo)
+        
+def createPacket(magicNo, packetType, dataLen, data, seqNo=None):
+    typeBinConversion = validity_check(magicNo, packetType, dataLen, data)
+    new_packet = packet(magicNo, typeBinConversion, dataLen, data, seqNo)
     return new_packet
 
 
 def createPacketFromString(stringInput):
     try:
-        magicNum, packetType, dataLen, seqNo, data = stringInput.split('","')
-        new_packet = createPacket(magicNum, packetType, dataLen, data, seqNo)
+        magicNo, packetType, dataLen, seqNo, data = stringInput.split(',')
+        new_packet = createPacket(magicNo, packetType, dataLen, data, seqNo)
         return new_packet
     except ValueError:
-        print("packet is invalid and does not contain the correct amount of fields")
+        print("Packet is invalid and does not contain the correct amount of fields")
         return ValueError
 
 
-def createPackets(magicNum, queueOfPackets, data, packetDataLength, packetType):
+def createPackets(magicNo, queueOfPackets, data, packetDataLength, packetType):
     """Creates many packets in a queue/ordered list with one piece of data, split up into given packet length"""
     startOfPacketData = 0
     dataLen = len(data)
@@ -89,11 +107,11 @@ def createPackets(magicNum, queueOfPackets, data, packetDataLength, packetType):
     while (startOfPacketData + packetDataLength < dataLen):
         endOfPacketData = startOfPacketData + packetDataLength
         packet_data = data[startOfPacketData:endOfPacketData]
-        queueOfPackets.append(createPacket(magicNum, packetType, dataLen, data))
+        queueOfPackets.append(createPacket(magicNo, packetType, dataLen, data))
         startOfPacketData += packetDataLength
     
     endOfPacketData = dataLen
     packet_data = data[startOfPacketData:endOfPacketData]
-    queueOfPackets.append(createPacket(magicNum, packetType, dataLen, data, 1))
+    queueOfPackets.append(createPacket(magicNo, packetType, dataLen, data, 1))
 
 
