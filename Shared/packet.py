@@ -43,7 +43,19 @@ class Packet():
         return self.data
 
 
-def convertPacketType(packetType):
+def convertBTP(packetType):
+    """0b0 is a dataPacket, 0b1 is acknowledgementPacket"""
+    if (packetType == 0b0):
+        newPacketType = "dataPacket"
+    elif (packetType == 0b1):
+        newPacketType = "acknowledgementPacket"
+    else:
+        newPacketType = "corrupt"
+    return newPacketType
+
+
+def convertPTB(packetType):
+    """0b0 is a dataPacket, 0b1 is acknowledgementPacket"""
     if (packetType == "dataPacket"):
         newPacketType = 0b0
     elif (packetType == "acknowledgementPacket"):
@@ -52,7 +64,7 @@ def convertPacketType(packetType):
 
 
 def createPacket(magicNo, packetType, dataLen, data, seqNo=None):
-    converted = convertPacketType(packetType)
+    converted = convertPTB(packetType)
     new_packet = Packet(magicNo, converted, dataLen, data, seqNo)
     return new_packet
 
@@ -61,6 +73,8 @@ def createPacketFromString(stringInput):
     try:
         magicNo = stringInput[0:6]
         packetType = stringInput[6]
+        # allows for errors to be caught later if packet type has been corrupted
+        packetType = convertBTP(packetType)
         seqNo = stringInput[7]
         dataLen = int(stringInput[8:11])
         data = stringInput[11:11 + dataLen]

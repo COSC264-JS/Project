@@ -1,13 +1,10 @@
 from Shared import TCP
 from Shared import packet
-from Shared import Formatting
 import os
 
 MAGIC_N0 = 0x497E
 
-
 PROGRAM_NAME = os.path.basename(__file__)[0:-3]
-
 
 def get_data():
     file_found = False
@@ -24,40 +21,18 @@ def get_data():
     return data
 
 
-def getValidPort(programName, portName):
-    formattedName = "{}{}{}{}".format(programName, Formatting.formats.DARKGRAY, portName, Formatting.formats.END)
-    correct = False
-    while not correct:
-        try:
-            port = int(input("Please input port for {} \n".format(formattedName)))
-            if 1024 <= port <= 64000:
-                correct = True
-            else:
-                print("{} is not between 1024 and 64000 (inclusive)".format(formattedName))
-
-        except ValueError:
-            print("{} is not an integer".format(formattedName))
-    return port
-
-
-def get_port_pair():
-    in_port = getValidPort(PROGRAM_NAME[0].upper(), "in")
-    out_port = getValidPort(PROGRAM_NAME[0].upper(), "out")
-    return (in_port, out_port)
-
-
 def main():
     # inputs for ports and data
-    in_port, out_port = get_port_pair()
-    dest_in_port = getValidPort("C", "in")
+    in_port, out_port = TCP.get_port_pair(PROGRAM_NAME[0].upper())
+    dest_in_port = TCP.getValidPort("C", "sin")
     data = get_data()
-    exitFlag = False
 
-    socket_pair = TCP.create_sockets(in_port, out_port, dest_in_port)
+    socket_pair = TCP.create_sockets(in_port, out_port, dest_in_port, MAGIC_N0)
     socket_pair.socket_out.open_connection()
     packets = []
     packet.createPackets(MAGIC_N0, packets, data, 512, "dataPacket")
     socket_pair.send_packets(packets)
+    socket_pair.close_sockets()
 
 
 main()

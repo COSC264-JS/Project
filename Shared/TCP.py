@@ -1,5 +1,6 @@
 import socket
 import time
+from Shared import Formatting
 from Shared import packet
 
 
@@ -11,32 +12,51 @@ class socket_pair():
     so this is a class that groups them together as 1 for ease when creating pairs"""
     socket_in = None
     socket_out = None
+
+    exitFlag = False
+
     magicNum = 0x0000
 
-    def __init__(self, in_port, out_port, dest_in_port):
+    def __init__(self, in_port, out_port, dest_in_port, magicNum):
         self.socket_in = in_socket(in_port)
         self.socket_out = out_socket(out_port, dest_in_port)
+        self.magicNum = magicNum
 
     def send_packets(self, packets):
         self.socket_out.open_connection()
-        for outPacket in packets:
+        for packetBuffer in packets:
             receivedCorrectly = False
             while not receivedCorrectly:
-                self.socket_out.send_packet(outPacket)
+                self.socket_out.send_packet(packetBuffer)
                 receivedCorrectly = self.check_packet()
+            del packetBuffer
 
     def check_packet(self):
-        received_reply = False
+        invalid_reply = False
+        valid_reply = False
         timed_out = False
         timer_start = time.time()
-        while not received_reply and and not timed_out:
+
+        # Keep looking until a valid or invalid reply or time out.
+        # Valid replies and invalid replies are not exhaustive as there can be no reply also.
+        while not valid_reply and not timed_out and not invalid_reply:
             current_time = time.time()
-            self.socket_in.search()
-            if (self.socket_in.packet_in() is not None):
-                received_reply = True
+            self.socket_in.search(self.magicNum)
+            if (self.socket_in.rcvd is not None):
+                valid_reply = True
+            elif (self.socket_in.invalid):
+                invalid_reply = True
             elif ((current_time - timer_start) >= TIME_OUT_TIME):
                 timed_out = True
-        return received_reply
+
+        return valid_reply
+
+    def receive_packets(self):
+        return self.socket_in.receive_packets(self.magicNum)
+
+    def close_sockets(self):
+        self.socket_in.close_socket()
+        self.socket_out.close_socket()
 
 
 class out_socket():
@@ -60,7 +80,7 @@ class out_socket():
     def send_packet(self, outPacket):
         self.unique_socket.send(str(outPacket).encode())
 
-    def close_connection(self):
+    def close_socket(self):
         self.unique_socket.close()
         self.unique_socket = None
 
@@ -76,10 +96,11 @@ class in_socket():
 
     local_buffer = 512
 
-    next_sequence_num = 0
+    next = 0
 
     string_in = ''
-    packet_in = None
+    rcvd = None
+    invalid = False
 
     def __init__(self, local_port):
         self.host_IP = socket.gethostname()
@@ -89,29 +110,70 @@ class in_socket():
         self.unique_socket.listen(1)
 
     def search(self, magicNum):
-        self.packet_in = None
+        self.rcvd = None
         self.connection, self.connected_to = self.unique_socket.accept()
-        self.string_in = self.connection.recv(self.local_buffer).decode()
+        self.string_in = (self.connection.recv(self.local_buffer)).decode()
         packet_found = len(self.string_in) > 0
         if packet_found:
-            self.packet_in = packet.createPacketFromString(self.string_in)
-            if self.packet_in.magicNum == magicNum and self.packet_in.seqNo == self.next_sequence_num:
-                self.next_sequence_num = 1 - self.next_sequence_num()
+            self.rcvd = packet.createPacketFromString(self.string_in)
+            if self.rcvd.packetType == "dataPacket":
+                if self.rcvd.magicNum == magicNum and self.rcvd.seqNo == self.next:
+                    self.next = 1 - self.next()
+                else:
+                    #invalid data
+                    self.rcvd = None
+                    self.invalid = True
+            elif self.rcvd.packetType == "acknowledgementPacket" and self.rcvd.magicNum == magicNum and self.rcvd.seqNo == self.next:
+                if self.rcvd.dataLen != 0:
+                    self.rcvd = None
+                    self.invalid = True
+                else:
+                    self.next = 1 - self.next()
+            else:
+                self.rcvd = None
+                self.invalid = True
 
         self.connection.close()
         self.connected_to = ''
-        self.packet_in
 
-    def receive_packets(self):
+    def receive_packets(self, magicNum):
         packets = []
         end = False
         while not end:
-            self.search()
-            end = self.packet_in.end
-            packets.append(self.packet_in)
+            self.search(magicNum)
+            while self.rcvd is not None:
+                end = self.rcvd.dataLen == 0
+                packets.append(self.rcvd)
         return packets
 
+    def close_socket(self):
+        self.unique_socket.close()
+        self.unique_socket = None
 
-def create_sockets(in_port, out_port, dest_in_port):
-    new_sockets = socket_pair(in_port, out_port, dest_in_port)
+
+def create_sockets(in_port, out_port, dest_in_port, magicNum):
+    new_sockets = socket_pair(in_port, out_port, dest_in_port, magicNum)
     return new_sockets
+
+
+def getValidPort(programName, portName):
+    formattedName = "{}{}{}{}".format(programName, Formatting.formats.DARKGRAY, portName, Formatting.formats.END)
+    correct = False
+    while not correct:
+        try:
+            port = int(input("Please input port for {} \n".format(formattedName)))
+            if 1024 <= port <= 64000:
+                correct = True
+            else:
+                print("{} is not between 1024 and 64000 (inclusive)".format(formattedName))
+
+        except ValueError:
+            print("{} is not an integer".format(formattedName))
+    return port
+
+
+def get_port_pair(program):
+    in_port = getValidPort(program, "in")
+    out_port = getValidPort(program, "out")
+    return (in_port, out_port)
+
