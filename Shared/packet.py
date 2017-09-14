@@ -1,8 +1,10 @@
 import sys
 
+
 class PacketInputError(Exception):
     def __init__(self, message):
         self.message = message
+
 
 class Packet():
     magicN0 = 0x0000
@@ -23,14 +25,13 @@ class Packet():
         self.seqNo = seqNo
 
     def __str__(self):
-        output_sting = []
+        output_sting = list()
         output_sting.append(str(self.magicNo))
         output_sting.append(str(self.packetType))
-        output_sting.append(str(self.dataLen))
-        output_sting.append(str(self.data))
         output_sting.append(str(self.seqNo))
-        joiner = '","'
-        return joiner.join(output_sting)
+        output_sting.append("{:02}".format(self.dataLen))
+        output_sting.append(str(self.data))
+        return "".join(output_sting)
 
     def generateAcknowledgement(self):
         """generates the expected acknowledgement packet"""
@@ -58,7 +59,11 @@ def createPacket(magicNo, packetType, dataLen, data, seqNo=None):
 
 def createPacketFromString(stringInput):
     try:
-        magicNo, packetType, dataLen, seqNo, data = stringInput.split(',')
+        magicNo = stringInput[0:6]
+        packetType = stringInput[6]
+        seqNo = stringInput[7]
+        dataLen = int(stringInput[8:11])
+        data = stringInput[11:11 + dataLen]
         new_packet = createPacket(magicNo, packetType, dataLen, data, seqNo)
         return new_packet
     except ValueError:
@@ -66,18 +71,25 @@ def createPacketFromString(stringInput):
         return ValueError
 
 
-def createPackets(magicN0, queueOfPackets, data, packetDataLength, packetType):
+def createPackets(magicN0, queueOfPackets, data, maxPacketDataLength, packetType):
     """Creates many packets in a queue/ordered list with one piece of data, split up into given packet length"""
     data_length = len(data)
-    num_packets = 0
+    number_of_packets = 0
+    packet_data = ""
 
-    for i in range(0, 1, data_length):
-        if i % packetDataLength == 0:
-            packet_data = data[i - packetDataLength: i]
-            packet = createPacket(magicN0, packetType, packetDataLength, packet_data, num_packets % 2)
+    for i in range(0, data_length, 1):
+        packet_data_size = sys.getsizeof(packet_data)
+        if packet_data_size < maxPacketDataLength:
+            packet_data += str(data)[i]
+        else:
+            if packet_data_size > maxPacketDataLength:
+                i -= 1
+                packet_data = str(packet_data)[:-1]
+                packet_data_size = sys.getsizeof(packet_data)
+            packet = createPacket(magicN0, packetType, packet_data_size, packet_data, number_of_packets % 2)
             queueOfPackets.append(packet)
-            num_packets += 1
-        elif i == data_length:
-            packet_data = data[i - (i % packetDataLength): i]
-            packet = createPacket(magicN0, packetType, packetDataLength, packet_data, num_packets % 2)
-            queueOfPackets.append(packet)
+            number_of_packets += 1
+            packet_data = ""
+
+    packet = createPacket(magicN0, packetType, 0, packet_data, number_of_packets % 2)
+    queueOfPackets.append(packet)
