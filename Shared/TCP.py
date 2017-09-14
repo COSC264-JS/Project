@@ -1,7 +1,12 @@
 import socket
-import packet
-import parser
-import time
+from Shared import packet
+
+class socket_pair():
+    socket_in = None
+    socket_out = None
+    def __init__(self, in_port, out_port):
+        self.socket_in = in_socket(in_port)
+        self.socket_out = out_socket(out_port)
 
 
 class out_socket():
@@ -10,15 +15,8 @@ class out_socket():
 
     unique_socket = None
 
-    local_buffer = 512
-
-    # not sure how to get destination_buffer
-    destination_buffer = 512
-
-    def __init__(self, socket_name, local_name):
+    def __init__(self, local_name):
         self.host_IP = socket.gethostname()
-
-        self.destination_port = int(parser.get_socket_port(socket_name))
         self.local_buffer = parser.get_program_buffer(local_name)
 
     def open_connection(self):
@@ -27,14 +25,6 @@ class out_socket():
 
     def send_packet(self, outPacket):
         self.unique_socket.send(str(outPacket))
-
-    def receive_acknowledgement(self, outPacket):
-        """will return true if the packet have been received correctly"""
-        expected = outPacket.generateAcknowledgement()
-        received = self.unique_socket.recv(self.local_buffer)
-        if str(expected) == str(received):
-            return True
-        return False
 
     def send_packets(self, packets, in_socket):
         self.open_connection()
@@ -58,21 +48,15 @@ class in_socket():
     unique_socket = None
     connection = None
 
-    local_buffer = 512
-
-    # not sure how to get sender_buffer
-    sender_buffer = 512
-
     next_sequence_num = 0
 
     string_in = ''
     packet_in = None
 
 
-    def __init__(self, local_port, local_buffer):
+    def __init__(self, local_port):
         self.host_IP = socket.gethostname()
         self.local_port = local_port
-        self.local_buffer = local_buffer
         self.unique_socket = socket.socket()
         self.unique_socket.bind((self.host_IP, self.local_port))
         self.unique_socket.listen(1)
@@ -101,5 +85,8 @@ class in_socket():
             packets.append(self.packet_in)
         return packets
 
-def check_packet(packet):
+def create_in(port):
+    new_socket = in_socket(port)
+    return new_socket
 
+def create_out():

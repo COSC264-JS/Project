@@ -1,13 +1,19 @@
-import socket
-from Shared import packet
 from Shared import TCP
-from Shared import parser
+from Shared import packet
+from Shared import Formatting
 import os
+
+MAGIC_N0 = 0x497E
+
 
 PROGRAM_NAME = os.path.basename(__file__)[0:-3]
 
+
 def get_data():
-    data = raw_input("input data you wish to send: \n")
+    file_name = input("Please input file name you wish to send: \n")
+    with open(file_name, "r") as file:
+        data = file.read()
+
     return data
 
 def check_length(length):
@@ -25,32 +31,58 @@ def check_length(length):
 
 
 def get_data_length():
-    length = raw_input("Please input desired data size per packet: (must be an integer >0 and <513)\n")
+    length = input("Please input desired data size per packet: (must be an integer >0 and <513)\n")
     while not check_length(length):
-        length = raw_input("Please input desired data size per packet: (must be an integer >0 and <513)\n")
+        length = input("Please input desired data size per packet: (must be an integer >0 and <513)\n")
     return int(length)
 
 
-def send_data():
-    magicNum = parser.get_magic_num()
+#def send_data():
+
+def getValidPort(programName, portName):
+    formattedName = "{}{}{}{}".format(programName, Formatting.formats.DARKGRAY, portName, Formatting.formats.END)
+    correct = False
+    while not correct:
+        try:
+            port = int(input("Please input port for \n".format(formattedName)))
+            if 1024 <= in_port <= 64000:
+                correct = True
+            else:
+                print("{} is not between 1024 and 64000 (inclusive)".format(formattedName))
+
+        except ValueError:
+            print("{} is not an integer".format(formattedName))
+    return port
+
+
+def get_ports():
+    in_port = getValidPort(PROGRAM_NAME[0], "in")
+    out_port = getValidPort(PROGRAM_NAME[0], "out")
+    return (in_port, out_port)
+
+
+def main_loop():
+    in_port, out_port = get_ports()
+
+    in_socket = TCP.createIn(in_port)
+    out_socket = TCP.createOut(out_port)
+
+    out_socket.open_connection()
+
+
+
     packets = []
     data = get_data()
-    packetDataLength = get_data_length()
-    packetType = "dataPacket"
-    packet.createPackets(magicNum, packets, data, packetDataLength, packetType)
+    packet.createPackets(MAGIC_N0, packets, data, 10, "dataPacket")
 
-    destinationName = "csin"
-    sout = TCP.out_socket(destinationName, PROGRAM_NAME)
 
-    sin = TCP.in_socket(parser.get_socket_port("sin"), parser.get_program_buffer(PROGRAM_NAME))
+    for currentPacket in packets:
+        print("hi")
 
-    sout.open_connection()
-    sout.send_packets(packetDataLength, sin)
-    sout.close_connection()
 
 
 def main():
-    send_data()
+    main_loop()
 
 
 main()
