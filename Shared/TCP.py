@@ -24,43 +24,49 @@ class socket_pair():
 
     def send_packets(self, packets):
         self.socket_out.open_connection()
+
+        # effectively an exit_flag
+        packets_sent = 0
         for packetBuffer in packets:
             receivedCorrectly = False
             while not receivedCorrectly:
+                packets_sent += 1
                 self.socket_out.send_packet(packetBuffer)
-                receivedCorrectly = self.check_packet()
+                receivedCorrectly = self.check_packet(packetBuffer.seqNo)
             del packetBuffer
+        return packets_sent
 
-    def check_packet(self):
-        invalid_reply = False
+    def check_packet(self, expectedNo):
         valid_reply = False
         timed_out = False
+        replied = False
         timer_start = time.time()
 
-        # Keep looking until a valid or invalid reply or time out.
-        # Valid replies and invalid replies are not exhaustive as there can be no reply also.
-        while not valid_reply and not timed_out and not invalid_reply:
+        # Keep looking until a valid reply or time out
+        while not valid_reply and not timed_out and not replied:
             current_time = time.time()
-            self.socket_in.search(self.magicNum)
-            if (self.socket_in.rcvd is not None):
+            valid_file = self.socket_in.search(self.magicNum, "acknowledgementPacket", expectedNo)
+            if not valid_file \
+                    and self.socket_in.rcvd is not None:
+                replied = True
+            elif valid_file:
+                replied = True
                 valid_reply = True
-            elif (self.socket_in.invalid):
-                invalid_reply = True
             elif ((current_time - timer_start) >= TIME_OUT_TIME):
                 timed_out = True
-
         return valid_reply
 
-    def receive_packets(self):
-        packets = []
+    def receive_packets(self, fileName):
+        Next = 0
         end = False
         while not end:
-            self.search(self.magicNum)
-            while self.socket_in.rcvd is not None:
-                end = self.socket_in.rcvd.dataLen == 0
-                packets.append(self.socket_in.rcvd)
-
-        return packets
+            while self.socket_in.rcvd is None:
+                self.socket_in.search(self.magicNum, "dataPacket", Next)
+            end = self.socket_in.rcvd.dataLen == 0
+            packet.appendToFile(self.socket_in.rcvd, fileName)
+            del self.socket_in.rcvd
+            self.socket_in.rcvd = None
+            Next = Next - 1
 
     def close_sockets(self):
         self.socket_in.close_socket()
@@ -108,7 +114,6 @@ class in_socket():
 
     string_in = ''
     rcvd = None
-    invalid = False
 
     def __init__(self, local_port):
         self.host_IP = socket.gethostname()
@@ -117,29 +122,24 @@ class in_socket():
         self.unique_socket.bind((self.host_IP, self.local_port))
         self.unique_socket.listen(1)
 
-    def search(self, magicNum):
+    def search(self, magicNum, expected_type, next):
         self.rcvd = None
         self.connection, self.connected_to = self.unique_socket.accept()
         self.string_in = (self.connection.recv(self.local_buffer)).decode()
         packet_found = len(self.string_in) > 0
         if packet_found:
             self.rcvd = packet.createPacketFromString(self.string_in)
-            if self.rcvd.packetType == "dataPacket":
-                if self.rcvd.magicNum == magicNum and self.rcvd.seqNo == self.next:
-                    self.next = 1 - self.next()
+            if self.rcvd.magicNo == magicNum:
+                if self.rcvd.packet.packetType == expected_type == "acknowledgementPacket":
+                    return valid_acknowledgement(self.rcvd, next)
+                elif self.rcvd.packet.packetType == expected_type == "dataPacket":
+                    return valid_data(self.rcvd, next)
                 else:
-                    #invalid data
-                    self.rcvd = None
-                    self.invalid = True
-            elif self.rcvd.packetType == "acknowledgementPacket" and self.rcvd.magicNum == magicNum and self.rcvd.seqNo == self.next:
-                if self.rcvd.dataLen != 0:
-                    self.rcvd = None
-                    self.invalid = True
-                else:
-                    self.next = 1 - self.next()
+                    return False
             else:
-                self.rcvd = None
-                self.invalid = True
+                return False
+        return False
+
 
         self.connection.close()
         self.connected_to = ''
@@ -148,6 +148,12 @@ class in_socket():
     def close_socket(self):
         self.unique_socket.close()
         self.unique_socket = None
+
+def valid_data(packet_in, expected):
+    return packet_in.seqNo == expected
+
+def valid_acknowledgement(packet_in, next):
+    return (packet_in.dataLen == 0 and packet_in.seqNo == next)
 
 
 def create_sockets(in_port, out_port, dest_in_port, magicNum):
@@ -175,4 +181,3 @@ def get_port_pair(program):
     in_port = getValidPort(program, "in")
     out_port = getValidPort(program, "out")
     return (in_port, out_port)
-

@@ -31,7 +31,7 @@ def main():
     socket_pair.socket_out.open_connection()
     packets = []
     packet.createPackets(MAGIC_N0, packets, data, 512, "dataPacket")
-    socket_pair.send_packets(packets)
+    print("Total packets sent from Sout: {}".format(socket_pair.send_packets(packets)))
     socket_pair.close_sockets()
 
 

@@ -27,15 +27,12 @@ class Packet():
     def __str__(self):
         output_sting = list()
         output_sting.append(str(self.magicNo))
-        output_sting.append(str(self.packetType))
+        output_sting.append(str(convertPTB(str(self.packetType))))
         output_sting.append(str(self.seqNo))
         output_sting.append("{:02}".format(self.dataLen))
         output_sting.append(str(self.data))
         return "".join(output_sting)
 
-    def generateAcknowledgement(self):
-        """generates the expected acknowledgement packet"""
-    
     def setSeqno(self, seqNo):
         self.seqNo = seqNo
 
@@ -56,6 +53,7 @@ def convertBTP(packetType):
 
 def convertPTB(packetType):
     """0b0 is a dataPacket, 0b1 is acknowledgementPacket"""
+    newPacketType = "corrupt"
     if (packetType == "dataPacket"):
         newPacketType = 0b0
     elif (packetType == "acknowledgementPacket"):
@@ -64,25 +62,21 @@ def convertPTB(packetType):
 
 
 def createPacket(magicNo, packetType, dataLen, data, seqNo=None):
-    converted = convertPTB(packetType)
-    new_packet = Packet(magicNo, converted, dataLen, data, seqNo)
+    new_packet = Packet(magicNo, packetType, dataLen, data, seqNo)
     return new_packet
 
 
 def createPacketFromString(stringInput):
-    try:
-        magicNo = stringInput[0:6]
-        packetType = stringInput[6]
-        # allows for errors to be caught later if packet type has been corrupted
-        packetType = convertBTP(packetType)
-        seqNo = stringInput[7]
-        dataLen = int(stringInput[8:11])
-        data = stringInput[11:11 + dataLen]
-        new_packet = createPacket(magicNo, packetType, dataLen, data, seqNo)
-        return new_packet
-    except ValueError:
-        print("Packet is invalid and does not contain the correct amount of fields")
-        return ValueError
+    print(stringInput)
+    magicNo = hex(int(stringInput[0:5]))
+    packetType = stringInput[5]
+    # allows for errors to be caught later if packet type has been corrupted
+    packetType = convertBTP(packetType)
+    seqNo = stringInput[6]
+    dataLen = int(stringInput[7:10])
+    data = stringInput[10:10 + dataLen]
+    new_packet = createPacket(magicNo, packetType, dataLen, data, seqNo)
+    return new_packet
 
 
 def createPackets(magicN0, queueOfPackets, data, maxPacketDataLength, packetType):
@@ -107,3 +101,8 @@ def createPackets(magicN0, queueOfPackets, data, maxPacketDataLength, packetType
 
     packet = createPacket(magicN0, packetType, 0, packet_data, number_of_packets % 2)
     queueOfPackets.append(packet)
+
+
+def appendToFile(inPacket, fileName):
+    with open(fileName, "a") as file:
+        file.write(inPacket.data)
