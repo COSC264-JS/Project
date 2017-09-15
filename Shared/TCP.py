@@ -52,7 +52,15 @@ class socket_pair():
         return valid_reply
 
     def receive_packets(self):
-        return self.socket_in.receive_packets(self.magicNum)
+        packets = []
+        end = False
+        while not end:
+            self.search(self.magicNum)
+            while self.socket_in.rcvd is not None:
+                end = self.socket_in.rcvd.dataLen == 0
+                packets.append(self.socket_in.rcvd)
+
+        return packets
 
     def close_sockets(self):
         self.socket_in.close_socket()
@@ -136,15 +144,6 @@ class in_socket():
         self.connection.close()
         self.connected_to = ''
 
-    def receive_packets(self, magicNum):
-        packets = []
-        end = False
-        while not end:
-            self.search(magicNum)
-            while self.rcvd is not None:
-                end = self.rcvd.dataLen == 0
-                packets.append(self.rcvd)
-        return packets
 
     def close_socket(self):
         self.unique_socket.close()
