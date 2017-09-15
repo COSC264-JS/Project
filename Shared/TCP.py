@@ -7,6 +7,14 @@ from Shared import packet
 TIME_OUT_TIME = 0.75  # 1 second of waiting for response
 
 
+class magicNumError(Exception):
+    """The magic number is not correct"""
+
+
+class packetTypeError(Exception):
+    """The packet type is not correct"""
+
+
 class socket_pair():
     """sockets in our case always have a in and an out socket,
     so this is a class that groups them together as 1 for ease when creating pairs"""
@@ -57,16 +65,28 @@ class socket_pair():
         return valid_reply
 
     def receive_packets(self, fileName):
+        valid = False
         Next = 0
         end = False
         while not end:
-            while self.socket_in.rcvd is None:
-                self.socket_in.search(self.magicNum, "dataPacket", Next)
-            end = self.socket_in.rcvd.dataLen == 0
-            packet.appendToFile(self.socket_in.rcvd, fileName)
+            try:
+                valid = self.socket_in.search(self.magicNum, "dataPacket", Next)
+                if valid:
+                    end = self.socket_in.rcvd.dataLen == 0
+                    packet.appendToFile(self.socket_in.rcvd, fileName)
+                if self.socket_in.rcvd is not None:
+                    acknowledgement = packet.createPacket(self.magicNum, "acknowledgementPacket", 0, "",
+                                                      self.socket_in.rcvd.seqNo)
+                    self.socket_out.send_packet(acknowledgement)
+
+            except magicNumError:
+                print("Magic number error...")
+            except packetTypeError:
+                print("Corrupt packet type error...")
+
             del self.socket_in.rcvd
             self.socket_in.rcvd = None
-            Next = Next - 1
+            Next = 1 - Next
 
     def close_sockets(self):
         self.socket_in.close_socket()
@@ -135,11 +155,9 @@ class in_socket():
                 elif self.rcvd.packet.packetType == expected_type == "dataPacket":
                     return valid_data(self.rcvd, next)
                 else:
-                    return False
+                    raise packetTypeError
             else:
-                return False
-        return False
-
+                raise magicNumError
 
         self.connection.close()
         self.connected_to = ''

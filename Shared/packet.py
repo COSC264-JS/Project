@@ -1,11 +1,5 @@
 import sys
 
-
-class PacketInputError(Exception):
-    def __init__(self, message):
-        self.message = message
-
-
 class Packet():
     magicN0 = 0x0000
 
@@ -67,7 +61,6 @@ def createPacket(magicNo, packetType, dataLen, data, seqNo=None):
 
 
 def createPacketFromString(stringInput):
-    print(stringInput)
     magicNo = hex(int(stringInput[0:5]))
     packetType = stringInput[5]
     # allows for errors to be caught later if packet type has been corrupted

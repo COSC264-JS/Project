@@ -11,7 +11,7 @@ def getValidFile():
         with open(file_path, "w") as file:
             file.write("")
         return file_path
-
+    print("File already exists... exiting")
     quit()
 
 
